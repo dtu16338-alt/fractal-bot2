@@ -1,14 +1,10 @@
-name: Feishu Asset Monitor (Scraper)
+name: Feishu Monitor
 
 on:
   schedule:
     # 每小时运行一次
     - cron: '0 * * * *'
   workflow_dispatch:
-
-# 关键：赋予 Action 写入仓库的权限，用于保存状态文件
-permissions:
-  contents: write 
 
 jobs:
   check-wallet:
@@ -23,30 +19,10 @@ jobs:
           python-version: '3.9'
 
       - name: 安装依赖
-        # 这里会安装 requests, beautifulsoup4, lxml
-        run: pip install -r requirements.txt 
+        run: pip install requests
 
-      - name: 运行监控脚本
+      - name: 运行脚本
         env:
           WALLET_ADDRESS: ${{ secrets.WALLET_ADDRESS }}
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
-        # 我们的脚本会读取状态并写入新的状态
         run: python monitor.py
-        
-      # === 关键：Git 提交新状态 ===
-      - name: 配置 Git 环境
-        run: |
-          git config user.name "GitHub Actions Bot"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          
-      - name: 提交新状态文件
-        run: |
-          # 检查是否有文件需要被提交（即 monitor.py 写入了新的 txid）
-          if git diff --exit-code last_asset_tx_id.txt; then
-            echo "状态文件未改变，无需提交。"
-          else
-            git add last_asset_tx_id.txt
-            git commit -m "🤖 [Bot] Update last known asset transaction ID"
-            git push
-            echo "新状态已提交到仓库。"
-          fi
