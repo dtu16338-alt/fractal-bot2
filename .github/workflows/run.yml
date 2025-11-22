@@ -1,4 +1,4 @@
-name: Feishu Asset Monitor (Playwright)
+name: Feishu Asset Monitor (Scraper)
 
 on:
   schedule:
@@ -23,19 +23,17 @@ jobs:
           python-version: '3.9'
 
       - name: 安装依赖
+        # 这里会安装 requests, beautifulsoup4, lxml
         run: pip install -r requirements.txt 
-        
-      # === 关键步骤：安装 Playwright 依赖的浏览器 ===
-      - name: 安装 Playwright 浏览器
-        run: playwright install chromium
 
       - name: 运行监控脚本
         env:
           WALLET_ADDRESS: ${{ secrets.WALLET_ADDRESS }}
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+        # 我们的脚本会读取状态并写入新的状态
         run: python monitor.py
         
-      # === Git 提交新状态 ===
+      # === 关键：Git 提交新状态 ===
       - name: 配置 Git 环境
         run: |
           git config user.name "GitHub Actions Bot"
@@ -43,15 +41,12 @@ jobs:
           
       - name: 提交新状态文件
         run: |
-          if [ -f last_asset_tx_id.txt ]; then
-            git add last_asset_tx_id.txt
-            if [[ $(git status --porcelain) ]]; then
-              git commit -m "🤖 [Bot] Update last known asset transaction ID"
-              git push
-              echo "✅ 新状态已提交到仓库。"
-            else
-              echo "状态文件未改变，无需提交。"
-            fi
+          # 检查是否有文件需要被提交（即 monitor.py 写入了新的 txid）
+          if git diff --exit-code last_asset_tx_id.txt; then
+            echo "状态文件未改变，无需提交。"
           else
-            echo "警告：monitor.py 未能写入状态文件，无法提交。请检查脚本日志。"
+            git add last_asset_tx_id.txt
+            git commit -m "🤖 [Bot] Update last known asset transaction ID"
+            git push
+            echo "新状态已提交到仓库。"
           fi
